@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { artistAPI, lookupAPI } from '@/services/api';
 import { ArtistWork, ArtistUploadType, ArtistWorkType } from '@/types';
@@ -34,6 +35,7 @@ import {
 const ArtistMyMusic: React.FC = () => {
   const [rows, setRows] = useState<ArtistWork[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('approved');
   const [editingMusic, setEditingMusic] = useState<ArtistWork | null>(null);
   const [viewingMusic, setViewingMusic] = useState<ArtistWork | null>(null);
   const [playerOpen, setPlayerOpen] = useState(false);
@@ -240,19 +242,48 @@ const ArtistMyMusic: React.FC = () => {
     }
   };
 
-  const cols: Column<ArtistWork>[] = [
+  const approvedTracks = useMemo(() =>
+    rows.filter(r => (r.status?.statusName || r.status?.status) === 'APPROVED'),
+    [rows]
+  );
+
+  const pendingTracks = useMemo(() =>
+    rows.filter(r => (r.status?.statusName || r.status?.status) === 'PENDING'),
+    [rows]
+  );
+
+  const rejectedTracks = useMemo(() =>
+    rows.filter(r => (r.status?.statusName || r.status?.status) === 'REJECTED'),
+    [rows]
+  );
+
+  const colsBase: Column<ArtistWork>[] = [
     { key: 'title', header: 'Title', accessor: 'title', className: 'font-medium' },
     { key: 'artist', header: 'Artist', accessor: 'artist' },
     { key: 'albumName', header: 'Album', accessor: 'albumName' },
     { key: 'mediaType', header: 'Type', accessor: (r) => isVideo(r) ? 'Video' : 'Audio' },
     { key: 'duration', header: 'Duration', accessor: 'duration' },
+    { key: 'isrcCode', header: 'ISRC', accessor: (r) => r.isrcCode || 'Pending' },
+  ];
+
+  const colsWithStatus: Column<ArtistWork>[] = [
+    ...colsBase,
     {
       key: 'status',
       header: 'Status',
       accessor: 'status',
       render: (value) => getStatusBadge((value?.statusName || value?.status || 'PENDING'))
     },
-    { key: 'isrcCode', header: 'ISRC', accessor: (r) => r.isrcCode || 'Pending' },
+  ];
+
+  const rejectedCols: Column<ArtistWork>[] = [
+    ...colsBase,
+    {
+      key: 'notes',
+      header: 'Rejection Reason',
+      accessor: 'notes',
+      render: (value) => value || '-'
+    },
   ];
 
   const actions: Action<ArtistWork>[] = [
@@ -299,7 +330,49 @@ const ArtistMyMusic: React.FC = () => {
         {loading ? (
           <div className="h-32 bg-muted rounded-lg animate-pulse"></div>
         ) : (
-          <DataTable data={rows} columns={cols} actions={actions} searchable emptyMessage="No music uploaded yet" />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="approved">
+                Approved Tracks ({approvedTracks.length})
+              </TabsTrigger>
+              <TabsTrigger value="pending">
+                Pending Tracks ({pendingTracks.length})
+              </TabsTrigger>
+              <TabsTrigger value="rejected">
+                Rejected Tracks ({rejectedTracks.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="approved" className="mt-6">
+              <DataTable
+                data={approvedTracks}
+                columns={colsBase}
+                actions={actions.filter(a => a.label !== 'Edit' && a.label !== 'Delete')}
+                searchable
+                emptyMessage="No approved tracks yet"
+              />
+            </TabsContent>
+
+            <TabsContent value="pending" className="mt-6">
+              <DataTable
+                data={pendingTracks}
+                columns={colsWithStatus}
+                actions={actions}
+                searchable
+                emptyMessage="No pending tracks"
+              />
+            </TabsContent>
+
+            <TabsContent value="rejected" className="mt-6">
+              <DataTable
+                data={rejectedTracks}
+                columns={rejectedCols}
+                actions={actions}
+                searchable
+                emptyMessage="No rejected tracks"
+              />
+            </TabsContent>
+          </Tabs>
         )}
 
         {/* View Music Details Dialog */}

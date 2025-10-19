@@ -405,7 +405,11 @@ export const artistAPI = {
     formData.append('AddressOfRecordingCompany', String((changes as any).addressOfRecordingCompany ?? (existing as any).addressOfRecordingCompany ?? ''));
     formData.append('labelName', String((changes as any).labelName ?? (existing as any).labelName ?? ''));
     formData.append('dateRecorded', String((changes as any).dateRecorded ?? (existing as any).dateRecorded ?? ''));
-    // Clear admin notes on update per requirement; do NOT touch ISRC
+    // Preserve ISRC code if it exists
+    if (existing.isrcCode) {
+      formData.append('ISRC_code', String(existing.isrcCode));
+    }
+    // Clear admin notes on update per requirement
     formData.append('notes', '');
 
     const response = await api.put(`/api/artist2/updatemusicbyuser/${id}`, formData, {

@@ -4,7 +4,7 @@ import DataTable, { Column, Action } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { adminAPI, statusAPI } from '@/services/api';
+import { adminAPI } from '@/services/api';
 import MusicPlayerDialog from '@/components/common/MusicPlayerDialog';
 import VideoPlayerDialog from '@/components/common/VideoPlayerDialog';
 import { ArtistWork } from '@/types';
@@ -18,64 +18,7 @@ const AdminAllMusic: React.FC = () => {
       try {
         setLoading(true);
         const data = await adminAPI.getAllMusic();
-        console.log('AdminAllMusic raw API response:', data);
-        
-        // Get all statuses once
-        const allStatuses = await statusAPI.getAllStatuses();
-        console.log('All statuses:', allStatuses);
-        
-        // Create a map for quick status lookup
-        const statusMap = new Map(allStatuses.map(s => [s.id, s]));
-        
-        // Map the music data with correct statuses
-        const mappedData = data.map((item: ArtistWork) => {
-          // Log the current item being processed
-          console.log('Processing music item:', {
-            id: item.id,
-            title: item.title,
-            statusId: item.status?.id,
-            currentStatus: item.status?.status
-          });
-          
-          // If we have a status ID and can find it in our status map
-          if (item.status?.id && statusMap.has(item.status.id)) {
-            const statusData = statusMap.get(item.status.id);
-            console.log(`Found status for item ${item.id}:`, statusData);
-            const validatedStatus = (statusData.status === 'PENDING' || 
-                                   statusData.status === 'APPROVED' || 
-                                   statusData.status === 'REJECTED') ? 
-                                   statusData.status : 'PENDING';
-            return {
-              ...item,
-              status: {
-                id: item.status.id,
-                status: validatedStatus
-              }
-            };
-          }
-          
-          // If we have a valid status on the item already
-          if (item.status?.status && 
-              (item.status.status === 'PENDING' || 
-               item.status.status === 'APPROVED' || 
-               item.status.status === 'REJECTED')) {
-            console.log(`Using existing status for item ${item.id}:`, item.status.status);
-            return item;
-          }
-          
-          // Default case
-          console.log(`No valid status found for item ${item.id}, defaulting to PENDING`);
-          return {
-            ...item,
-            status: {
-              id: item.status?.id,
-              status: 'PENDING' as const
-            }
-          };
-        });
-        
-        console.log('Final mapped data:', mappedData);
-        setMusic(mappedData);
+        setMusic(data);
       } catch (error) {
         console.error('Load music error:', error);
         toast({
@@ -151,14 +94,8 @@ const AdminAllMusic: React.FC = () => {
     {
       key: 'status',
       header: 'Status',
-      accessor: (row) => {
-        console.log('Accessing status for row:', row.id, 'Status:', row.status);
-        return row.status?.status || 'PENDING';
-      },
-      render: (value) => {
-        console.log('Rendering status badge for value:', value);
-        return getStatusBadge(String(value));
-      }
+      accessor: (row) => row.status?.status || 'PENDING',
+      render: (value) => getStatusBadge(String(value))
     },
     { key: 'isrcCode', header: 'ISRC', accessor: (r) => r.isrcCode || 'Pending' },
     { key: 'mediaType', header: 'Type', accessor: (item) => isVideo(item) ? 'Video' : 'Audio', render: (value, item) => (
